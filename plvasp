@@ -1,0 +1,396 @@
+#!/usr/bin/env python3
+
+#This is a small script to plot in a nice way the DOS, bandstructure and DOS+bandstructure in VASP,
+#It needs the vaspkit package installed to generate DOS and bands, 
+#or at least the TDOS.dat and REFORMATTED_BAND.dat generated previously by vaspkit
+#© 2022 Enrico Pedretti
+
+import numpy as np
+import pandas as pd
+import matplotlib as mpl
+from matplotlib import pyplot as plt
+from matplotlib.gridspec import GridSpec
+import os
+import sys
+
+
+def is_number(s : str):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+def find_CBM_VBM(bands : pd.DataFrame):
+    '''
+    returns vb_maxes_x, vb_maxes_y, cb_mins_x, cb_mins_y
+    '''
+
+    vbm_x = []
+    vbm_y = []
+
+    cbm_x = []
+    cbm_y = []
+
+    for i in range(1,len(bands.columns)): #loop over all the bands, to find the max below gap and the min above gap for each band
+
+        if(np.min(bands[i].values)<0 and np.max(bands[i].values > 0)): return ([], [], [], []) #conductor (no gap)
+        if(np.min(bands[i].values) > 0) :
+            index_mins = np.argwhere(bands[i].values == np.amin(bands[i].values)).flatten().tolist()
+            for k in index_mins:
+                if(bands[i].values[k]<0.001): return ([], [], [], []) #zero-gap semiconductor (graphene)
+                cbm_y.append(bands[i].values[k])
+                cbm_x.append(bands[i].index[k])
+        else: 
+            index_maxes = np.argwhere(bands[i].values == np.amax(bands[i].values)).flatten().tolist()
+            for k in index_maxes:
+                vbm_y.append(bands[i].values[k])
+                vbm_x.append(bands[i].index[k])
+
+
+
+    #identify the global max/min between the ones of single bands
+    vb_i_max = np.argwhere(vbm_y == np.amax(vbm_y)).flatten().tolist()
+    vb_maxes_x = []
+    vb_maxes_y = []
+    for i in vb_i_max: vb_maxes_x.append(vbm_x[i]), vb_maxes_y.append(vbm_y[i])
+
+    cb_i_min = np.argwhere(cbm_y == np.amin(cbm_y)).flatten().tolist()
+    cb_mins_x = []
+    cb_mins_y = []
+    for i in cb_i_min: cb_mins_x.append(cbm_x[i]), cb_mins_y.append(cbm_y[i])
+
+    return vb_maxes_x, vb_maxes_y, cb_mins_x, cb_mins_y
+
+
+def plot_DOS_bands(dos_file : str = 'TDOS.dat', bands_file : str = 'REFORMATTED_BAND.dat', PLOT_CBMVBM : bool = True, minmax : tuple = None, outFile : str = 'bands.png'):
+
+    bands = pd.read_csv(bands_file, sep = '\s+', index_col = 0, skiprows = 1, header = None)
+    dos = pd.read_csv(dos_file, sep = '\s+', usecols = [0, 1], index_col = 0)
+
+
+
+    #read k-points labels (strings) and numeric values #######################################
+    if(os.path.dirname(bands_file) == ''): fff = "KLABELS"
+    else: fff = os.path.dirname(bands_file)+"/KLABELS"
+    PLOT_LABELS = os.path.isfile(fff)
+    if(PLOT_LABELS):
+        klabels_data = np.loadtxt(fff, dtype=np.string_, skiprows=1, usecols = (0,1))
+
+        kpoints_values = klabels_data[:-1,1].astype(float)
+
+        kpoints_labels = klabels_data[:-1,0].tolist()  #[:-1,0] -> first column, excluding last row
+        kpoints_labels = [i.decode('utf-8','ignore') for i in kpoints_labels]
+
+        vseparators = []
+
+        for i in range(len(kpoints_labels)):
+            if kpoints_labels[i].lower()=="gamma":
+                kpoints_labels[i]=u"Γ"
+            if '|' in kpoints_labels[i]:
+                vseparators.append(kpoints_values[i])
+    else:
+        print('KLABELS file not found, so labels won\'t be plotted.')
+    ##########################################################################################
+
+
+    fig = plt.figure(figsize=(10,4))
+    gs = GridSpec(1, 2, width_ratios=[5,1])
+    ax1 = plt.subplot(gs[0])
+    ax2 = plt.subplot(gs[1])#, sharey=ax1)
+    fig.subplots_adjust(wspace=0.05, hspace=0)
+
+    if(PLOT_LABELS):
+        for i in vseparators: #draw vertical lines for k-points like X|K
+            ax1.axvline(x=i)
+            ax1.set_xticks(kpoints_values)
+            ax1.set_xticklabels(kpoints_labels)
+
+    ax1.axhline(y=0)
+    ax1.plot(bands, 'b-')
+    if(PLOT_CBMVBM): #plot VBM and CBM points
+        vbm_x, vbm_y, cbm_x, cbm_y = find_CBM_VBM(bands)
+        points_x = vbm_x+cbm_x
+        points_y = vbm_y+cbm_y
+        if(len(points_x)): ax1.plot(points_x, points_y, 'ro', markersize = 5)
+    ax1.set_xlim(np.min(bands.index), np.max(bands.index))
+    if minmax is not None: 
+        ax1.set_ylim(minmax[0], minmax[1])
+    ax1.set_ylabel('E-E$_{Fermi}$ (eV)')
+    #ax1.set_xlabel('k points')
+    ax1.grid(linestyle='dotted')
+
+    ax2.axhline(y=0)
+    ax2.plot(dos['TDOS'],dos.index, 'b-')
+    ax2.set_yticklabels([])
+    ax2.set_xlim(xmin = -0.002)
+    if minmax is not None:
+        xmax = max(dos['TDOS'][(dos.index >= minmax[0]) & (dos.index <= minmax[1])])
+        ax2.set_xlim(xmax=xmax + 0.1*abs(xmax) )        
+    #ax2.set_xlabel("DOS")
+    ax2.set_ylim(ax1.get_ylim())
+    ax2.fill_between(dos['TDOS'][dos.index<=0],dos.index[dos.index<=0], color = 'dodgerblue')
+    ax2.grid(linestyle='dotted')
+
+    fig.savefig(outFile, bbox_inches='tight',dpi=600)
+
+def plotBands(bands_file : str = 'REFORMATTED_BAND.dat', PLOT_CBMVBM: bool = True, minmax : tuple = None, outFile : str = 'bands_dos.png'):
+
+    bands = pd.read_csv(bands_file, sep = '\s+', index_col = 0, skiprows = 1, header = None)
+    
+
+    #read k-points labels (strings) and numeric values #######################################
+    if(os.path.dirname(bands_file) == ''): fff = "KLABELS"
+    else: fff = os.path.dirname(bands_file)+"/KLABELS"
+    PLOT_LABELS = os.path.isfile(fff)
+    if(PLOT_LABELS):
+        klabels_data = np.loadtxt(fff, dtype=np.string_, skiprows=1, usecols = (0,1))
+
+        kpoints_values = klabels_data[:-1,1].astype(float)
+
+        kpoints_labels = klabels_data[:-1,0].tolist()  #[:-1,0] -> first column, excluding last row
+        kpoints_labels = [i.decode('utf-8','ignore') for i in kpoints_labels]
+
+        vseparators = []
+
+        for i in range(len(kpoints_labels)):
+            if kpoints_labels[i].lower()=="gamma":
+                kpoints_labels[i]=u"Γ"
+            if '|' in kpoints_labels[i]:
+                vseparators.append(kpoints_values[i])
+    else:
+        print('KLABELS file not found, so labels won\'t be plotted.')
+    ##########################################################################################
+
+
+    fig = plt.figure(figsize=(10,5))
+
+    if(PLOT_LABELS):
+        for i in vseparators: #draw vertical lines for k-points like X|K
+            plt.axvline(x=i)
+            plt.xticks(kpoints_values, kpoints_labels)
+
+    plt.axhline(y=0)
+    plt.plot(bands, 'b-')
+    if(PLOT_CBMVBM): #plot VBM and CBM points
+        vbm_x, vbm_y, cbm_x, cbm_y = find_CBM_VBM(bands)
+        points_x = vbm_x+cbm_x
+        points_y = vbm_y+cbm_y
+        if(len(points_x)): plt.plot(points_x, points_y, 'ro', markersize = 5)
+    plt.xlim(np.min(bands.index), np.max(bands.index))
+    if(minmax is not None):
+        plt.ylim(minmax[0], minmax[1])
+    plt.ylabel('E-E$_{Fermi}$ (eV)')
+    #plt.xlabel('k points')
+    plt.grid(linestyle='dotted')
+
+    fig.savefig(outFile, bbox_inches='tight', dpi=600)
+
+def plotDOS(dos_file : str = 'TDOS.dat', minmax : tuple = None, outFile : str = 'dos.png'):
+    dos=pd.read_csv(dos_file, sep = '\s+', usecols = [0, 1], index_col = 0)
+    plt.figure(figsize=(6,3.5))
+    plt.plot(dos, color='b')
+    plt.fill_between(dos.index[dos.index<=0],dos['TDOS'][dos.index<=0], color = 'dodgerblue')
+    plt.title('Density of states')
+    plt.xlabel('E-E$_{Fermi}$ (eV)')
+    plt.ylabel('DOS')
+    plt.grid(linestyle='dotted')
+    if minmax is not None: 
+        plt.xlim(minmax[0], minmax[1])
+        ymax = max(dos['TDOS'][(dos.index >= minmax[0]) & (dos.index <= minmax[1])])
+        plt.ylim(top=ymax + 0.05*abs(ymax) )
+    plt.ylim(bottom=-0.015)
+    plt.savefig(outFile, bbox_inches='tight', dpi = 300)
+
+def main():
+
+    mpl.use('Agg') #silent mode
+    mpl.rcParams['font.size'] = 13
+    workdir = os.getcwd()
+
+    if(len(sys.argv) == 1):
+        print('You need to specify at least one option (-d, -b, or both). Exiting.')
+        return 1
+
+    if('--h' in sys.argv or '--help' in sys.argv):
+        print('''plvasp: a small toolkit to plot DOS, bandstructure and DOS+bandstructure in a nice way using matplotlib.
+
+It relies on vapkit, so it needs to be callable from command-line command if you want to generate dos and band files.
+If the files were already generated with vaspkit the execution is not needed.
+The plot is saved as a png file IN THE WORKING DIRECTORY
+
+Commands:
+ 
+Mandatory (one of these formats):
+-d (FILE)             : plot DOS. If FILE is not specified, it is assumed to be in the working directory.
+-b (FILE)             : plot bandstructure. If FILE is not specified, it is assumed to be in the working directory.
+-d (FILE) -b (FILE)   : plot DOS and bandstructure together (sharing y axis)
+
+Optional:
+-o OUTPUTFILE         : specify custom ouput file name and location 
+--m                   : plot red points at the conduction band minimum (CBM) and valence band maximum (VBM) in the band structure
+--r min max           : energy range (both for DOS and bandstructure)
+
+
+If the files do not exist in the working directory or at the specified location, you will be asked if you want to try to generate them with vaspkit,
+in which case you need to type 'y'.''')
+        return 0
+
+
+    #case -d (dos)
+    if('-d' in sys.argv  and '-b' not in sys.argv):
+
+        if('-o' in sys.argv):
+            if(len(sys.argv)> sys.argv.index('-o')+1):
+                outFile = sys.argv[sys.argv.index('-o')+1]
+            else:
+                print('You need to specify output filename if you use option -o. Exiting.')
+                return 1
+        else:
+            outFile = 'dos.png'
+            
+        if(len(sys.argv)> sys.argv.index('-d')+1 and sys.argv[sys.argv.index('-d') + 1][0] != '-'):
+           dosFile=(os.path.dirname(sys.argv[sys.argv.index('-d') + 1]) if(os.path.dirname(sys.argv[sys.argv.index('-d') + 1]) != '') else '.')+'/TDOS.dat' 
+        else: #so no filename passed
+            dosFile='TDOS.dat'     
+
+        if(not os.path.isfile(dosFile)):
+            if('y' == input('TDOS.dat not found. Try to generate it with vaspkit? y/n: ').lower() ):
+                if(os.path.dirname(dosFile) != ''): os.chdir(os.path.dirname(dosFile))
+                os.system('echo "11\n111\n" | vaspkit')
+                os.chdir(workdir)
+
+            if(not os.path.isfile(dosFile)):
+                print('No TDOS.dat available. Exiting.')
+                return 1
+
+        if('--r' in sys.argv):
+            if(sys.argv.index('--r') + 2 <= len(sys.argv) - 1):
+                if(is_number(sys.argv[sys.argv.index('--r') + 1]) and is_number(sys.argv[sys.argv.index('--r') + 2])):
+                    e_min = float(sys.argv[sys.argv.index('--r') + 1])
+                    e_max = float(sys.argv[sys.argv.index('--r') + 2])
+                    plotDOS(dos_file = dosFile, minmax = (min(e_min, e_max), max(e_min, e_max)), outFile = outFile)
+                else:
+                    print('Range values are not numbers or missing. Exiting.')
+                    return 1
+            else:
+                print('Missing range value(s). Exiting.')
+                return 1
+        else:
+            plotDOS(dos_file = dosFile, outFile = outFile)
+
+
+
+    #case -b (bands)
+    elif('-b' in sys.argv  and '-d' not in sys.argv):
+
+        if('-o' in sys.argv):
+            if(len(sys.argv)> sys.argv.index('-o')+1):
+                outFile = sys.argv[sys.argv.index('-o')+1]
+            else:
+                print('You need to specify output filename if you use option -o. Exiting.')
+                return 1
+        else:
+            outFile = 'bands.png'
+
+        if(len(sys.argv)> sys.argv.index('-b')+1 and sys.argv[sys.argv.index('-b') + 1][0] != '-'):
+           bandsFile=(os.path.dirname(sys.argv[sys.argv.index('-b') + 1]) if(os.path.dirname(sys.argv[sys.argv.index('-b') + 1]) != '') else '.')+'/REFORMATTED_BAND.dat' 
+        else: #so no filename passed
+            bandsFile='REFORMATTED_BAND.dat'  
+
+        if(not os.path.isfile(bandsFile)):
+            if('y' == input('REFORMATTED_BAND.dat not found. Try to generate it with vaspkit? y/n: ').lower() ):
+                if(os.path.dirname(bandsFile) != ''): os.chdir(os.path.dirname(bandsFile))
+                os.system('echo "21\n211\n" | vaspkit')
+                os.chdir(workdir)
+
+            if(not os.path.isfile(bandsFile)):
+                print('No REFORMATTED_BAND.dat available. Exiting.')
+                return 1
+
+        if('--r' in sys.argv):
+            if(sys.argv.index('--r') + 2 <= len(sys.argv) - 1):
+                if(is_number(sys.argv[sys.argv.index('--r') + 1]) and is_number(sys.argv[sys.argv.index('--r') + 2])):
+                    e_min = float(sys.argv[sys.argv.index('--r') + 1])
+                    e_max = float(sys.argv[sys.argv.index('--r') + 2])
+                    plotBands(bands_file = bandsFile, PLOT_CBMVBM='--m' in sys.argv, minmax=(min(e_min, e_max), max(e_min, e_max)), outFile=outFile )
+                else:
+                    print('Range values are not numbers or missing. Exiting.')
+                    return 1
+            else:
+                print('Missing range value(s). Exiting.')
+                return 1
+        else:
+            plotBands(bands_file=bandsFile, PLOT_CBMVBM='--m' in sys.argv, outFile=outFile)
+
+
+
+    #case -d -b (dos&bands)
+    elif('-d' in sys.argv  and '-b' in sys.argv):
+
+        if('-o' in sys.argv):
+            if(len(sys.argv)> sys.argv.index('-o')+1):
+                outFile = sys.argv[sys.argv.index('-o')+1]
+            else:
+                print('You need to specify output filename if you use option -o. Exiting.')
+                return 1
+        else:
+            outFile = 'bands_dos.png'
+
+        if(len(sys.argv)> sys.argv.index('-d')+1 and sys.argv[sys.argv.index('-d') + 1][0] != '-'):
+           dosFile=(os.path.dirname(sys.argv[sys.argv.index('-d') + 1]) if(os.path.dirname(sys.argv[sys.argv.index('-d') + 1]) != '') else '.')+'/TDOS.dat' 
+        else: #so no filename passed
+            dosFile='TDOS.dat'    
+
+        if(len(sys.argv)> sys.argv.index('-b')+1 and sys.argv[sys.argv.index('-b') + 1][0] != '-'):
+           bandsFile=(os.path.dirname(sys.argv[sys.argv.index('-b') + 1]) if(os.path.dirname(sys.argv[sys.argv.index('-b') + 1]) != '') else '.')+'/REFORMATTED_BAND.dat' 
+        else: #so no filename passed
+            bandsFile='REFORMATTED_BAND.dat'  
+
+        if(not os.path.isfile(dosFile)):
+            if('y' == input('TDOS.dat not found. Try to generate it with vaspkit? y/n: ').lower() ):
+                if(os.path.dirname(dosFile) != ''): os.chdir(os.path.dirname(dosFile))
+                os.system('echo "11\n111\n" | vaspkit')
+                os.chdir(workdir)          
+            if(not os.path.isfile(dosFile)):
+                print('No TDOS.dat available. Exiting.')
+                return 1
+
+        if(not os.path.isfile(bandsFile)):
+            if('y' == input('REFORMATTED_BAND.dat not found. Try to generate it with vaspkit? y/n: ').lower() ):
+                if(os.path.dirname(bandsFile) != ''): os.chdir(os.path.dirname(bandsFile))
+                os.system('echo "21\n211\n" | vaspkit')
+                os.chdir(workdir)
+
+            if(not os.path.isfile(bandsFile)):
+                print('No REFORMATTED_BAND.dat available. Exiting.')
+                return 1
+
+        if('--r' in sys.argv):
+            if(sys.argv.index('--r') + 2 <= len(sys.argv) - 1):
+                if(is_number(sys.argv[sys.argv.index('--r') + 1]) and is_number(sys.argv[sys.argv.index('--r') + 2])):
+                    e_min = float(sys.argv[sys.argv.index('--r') + 1])
+                    e_max = float(sys.argv[sys.argv.index('--r') + 2])
+                    plot_DOS_bands(dos_file=dosFile, bands_file=bandsFile, PLOT_CBMVBM='--m' in sys.argv, minmax=(min(e_min, e_max), max(e_min, e_max)), outFile=outFile)
+                else:
+                    print('Range values are not numbers or missing. Exiting.')
+                    return 1
+            else:
+                print('Missing range value(s). Exiting.')
+                return 1
+        else:
+            plot_DOS_bands(dos_file=dosFile, bands_file=bandsFile, PLOT_CBMVBM='--m' in sys.argv, outFile=outFile)
+
+
+
+
+    #no matching for any of the three cases
+    else:
+        print('No -d or -b specified, or argument(s) not recognized. Exiting.') 
+        return 1
+
+
+
+
+if __name__ == '__main__':
+    sys.exit(main())
