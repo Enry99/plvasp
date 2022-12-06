@@ -199,7 +199,7 @@ def plotDOS(dos_file : str = 'TDOS.dat', minmax : tuple = None, outFile : str = 
         plt.xlim(minmax[0], minmax[1])
         ymax = max(dos['TDOS'][(dos.index >= minmax[0]) & (dos.index <= minmax[1])])
         plt.ylim(top=ymax + 0.05*abs(ymax) )
-    plt.ylim(bottom=-0.015)
+    plt.ylim(bottom=-0.005)
     plt.savefig(outFile, bbox_inches='tight', dpi = 300)
 
 def main():
