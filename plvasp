@@ -63,10 +63,10 @@ def find_CBM_VBM(bands : pd.DataFrame):
     return vb_maxes_x, vb_maxes_y, cb_mins_x, cb_mins_y
 
 
-def plot_DOS_bands(dos_file : str = 'TDOS.dat', bands_file : str = 'REFORMATTED_BAND.dat', PLOT_CBMVBM : bool = True, minmax : tuple = None, outFile : str = 'bands.png'):
+def plot_DOS_bands(dos_file : str = 'TDOS.dat', bands_file : str = 'REFORMATTED_BAND.dat', PLOT_CBMVBM : bool = True, minmax : tuple = None, updown : str = '--su', outFile : str = 'bands.png', style : str = '--lines'):
 
     bands = pd.read_csv(bands_file, sep = '\s+', index_col = 0, skiprows = 1, header = None)
-    dos = pd.read_csv(dos_file, sep = '\s+', usecols = [0, 1], index_col = 0)
+    dos = pd.read_csv(dos_file, sep = '\s+', index_col = 0)
 
 
 
@@ -93,6 +93,9 @@ def plot_DOS_bands(dos_file : str = 'TDOS.dat', bands_file : str = 'REFORMATTED_
         print('KLABELS file not found, so labels won\'t be plotted.')
     ##########################################################################################
 
+    if(updown != '--su' and len(dos.columns) < 2):
+        print('Spin channel(s) option specified, but only 1 channel found in TDOS.dat (unpolarized calc.). Showing the only available channel.')
+        updown='--su'
 
     fig = plt.figure(figsize=(10,4))
     gs = GridSpec(1, 2, width_ratios=[5,1])
@@ -102,12 +105,17 @@ def plot_DOS_bands(dos_file : str = 'TDOS.dat', bands_file : str = 'REFORMATTED_
 
     if(PLOT_LABELS):
         for i in vseparators: #draw vertical lines for k-points like X|K
-            ax1.axvline(x=i)
+            ax1.axvline(x=i, color='black', linewidth=0.7)
             ax1.set_xticks(kpoints_values)
             ax1.set_xticklabels(kpoints_labels)
 
-    ax1.axhline(y=0)
+    ax1.axhline(y=0, color='black', linewidth=0.7)
+
     ax1.plot(bands, 'b-')
+    if(style == '--points'):
+        ax1.plot(bands[bands<=0], 'bo', markersize = 3)
+        ax1.plot(bands[bands>0], 'bo', markersize = 3, markerfacecolor='white')
+
     if(PLOT_CBMVBM): #plot VBM and CBM points
         vbm_x, vbm_y, cbm_x, cbm_y = find_CBM_VBM(bands)
         points_x = vbm_x+cbm_x
@@ -120,21 +128,45 @@ def plot_DOS_bands(dos_file : str = 'TDOS.dat', bands_file : str = 'REFORMATTED_
     #ax1.set_xlabel('k points')
     ax1.grid(linestyle='dotted')
 
-    ax2.axhline(y=0)
-    ax2.plot(dos['TDOS'],dos.index, 'b-')
+
+
+    ax2.axhline(y=0, color='black', linewidth=0.7 )
+
+    if(updown == '--su'): 
+        ax2.plot(dos.iloc[:, 0], dos.iloc[:, 0].index, color='b')
+        ax2.fill_between(dos.iloc[:, 0][dos.index<=0], dos.index[dos.index<=0], color = 'dodgerblue')
+    elif(updown == '--sd'): 
+        ax2.plot(-dos.iloc[:, 1], dos.iloc[:, 1].index, color='r')
+        ax2.fill_between(-dos.iloc[:, 1][dos.index<=0], dos.index[dos.index<=0], color = 'lightcoral')
+    else:
+        ax2.plot(dos.iloc[:, 0], dos.iloc[:, 0].index, color='b', label='up')
+        ax2.plot(-dos.iloc[:, 1], dos.iloc[:, 1].index, color='r', label='down')
+        ax2.fill_between(dos.iloc[:, 0][dos.index<=0], dos.index[dos.index<=0], color = 'dodgerblue')
+        ax2.fill_between(-dos.iloc[:, 1][dos.index<=0], dos.index[dos.index<=0], color = 'lightcoral')
+        ax2.axvline(0, color = 'black', linewidth=0.7) #, min(dos.index), max(dos.index)
+ 
+
     ax2.set_yticklabels([])
-    ax2.set_xlim(xmin = -0.002)
-    if minmax is not None:
-        xmax = max(dos['TDOS'][(dos.index >= minmax[0]) & (dos.index <= minmax[1])])
-        ax2.set_xlim(xmax=xmax + 0.1*abs(xmax) )        
+
+    if minmax is not None: 
+        if(updown == '--su'):
+            xmax = max(dos.iloc[:, 0][(dos.index >= minmax[0]) & (dos.index <= minmax[1])])
+            ax2.set_xlim(xmin=-0.005, xmax = xmax + 0.05*abs(xmax))
+        elif(updown == '--sd'):
+            xmin = -max(dos.iloc[:, 1][(dos.index >= minmax[0]) & (dos.index <= minmax[1])])
+            ax2.set_xlim(xmin = xmin - 0.05*abs(xmin), xmax=+0.005)
+        else:
+            xmax = max(dos.iloc[:, 0][(dos.index >= minmax[0]) & (dos.index <= minmax[1])])
+            xmin = -max(dos.iloc[:, 1][(dos.index >= minmax[0]) & (dos.index <= minmax[1])])
+            ax2.set_xlim(xmin = xmin - 0.05*abs(xmin), xmax = xmax + 0.05*abs(xmax))            
+
     #ax2.set_xlabel("DOS")
     ax2.set_ylim(ax1.get_ylim())
-    ax2.fill_between(dos['TDOS'][dos.index<=0],dos.index[dos.index<=0], color = 'dodgerblue')
     ax2.grid(linestyle='dotted')
 
     fig.savefig(outFile, bbox_inches='tight',dpi=600)
 
-def plotBands(bands_file : str = 'REFORMATTED_BAND.dat', PLOT_CBMVBM: bool = True, minmax : tuple = None, outFile : str = 'bands_dos.png'):
+def plotBands(bands_file : str = 'REFORMATTED_BAND.dat', PLOT_CBMVBM: bool = True, minmax : tuple = None, outFile : str = 'bands_dos.png', style : str = '--lines'):
 
     bands = pd.read_csv(bands_file, sep = '\s+', index_col = 0, skiprows = 1, header = None)
     
@@ -167,11 +199,15 @@ def plotBands(bands_file : str = 'REFORMATTED_BAND.dat', PLOT_CBMVBM: bool = Tru
 
     if(PLOT_LABELS):
         for i in vseparators: #draw vertical lines for k-points like X|K
-            plt.axvline(x=i)
+            plt.axvline(x=i, color='black', linewidth=0.7)
             plt.xticks(kpoints_values, kpoints_labels)
 
-    plt.axhline(y=0)
+    plt.axhline(y=0, color='black', linewidth=0.7)
     plt.plot(bands, 'b-')
+    if(style == '--points'):
+        plt.plot(bands[bands<=0], 'bo', markersize = 3)
+        plt.plot(bands[bands>0], 'bo', markersize = 3, markerfacecolor='white')
+
     if(PLOT_CBMVBM): #plot VBM and CBM points
         vbm_x, vbm_y, cbm_x, cbm_y = find_CBM_VBM(bands)
         points_x = vbm_x+cbm_x
@@ -186,20 +222,43 @@ def plotBands(bands_file : str = 'REFORMATTED_BAND.dat', PLOT_CBMVBM: bool = Tru
 
     fig.savefig(outFile, bbox_inches='tight', dpi=600)
 
-def plotDOS(dos_file : str = 'TDOS.dat', minmax : tuple = None, outFile : str = 'dos.png'):
-    dos=pd.read_csv(dos_file, sep = '\s+', usecols = [0, 1], index_col = 0)
+def plotDOS(dos_file : str = 'TDOS.dat', minmax : tuple = None, updown : str = '--su', outFile : str = 'dos.png'):
+    dos=pd.read_csv(dos_file, sep = '\s+', index_col = 0)
+    if(updown != '--su' and len(dos.columns) < 2):
+        print('Spin channel(s) option specified, but only 1 channel found in TDOS.dat (unpolarized calc.). Showing the only available channel.')
+        updown='--su'
     plt.figure(figsize=(6,3.5))
-    plt.plot(dos, color='b')
-    plt.fill_between(dos.index[dos.index<=0],dos['TDOS'][dos.index<=0], color = 'dodgerblue')
+    if(updown == '--su'): 
+        plt.plot(dos.iloc[:, 0], color='b')
+        plt.fill_between(dos.index[dos.index<=0],dos.iloc[:, 0][dos.index<=0], color = 'dodgerblue')
+    elif(updown == '--sd'): 
+        plt.plot(-dos.iloc[:, 1], color='r')
+        plt.fill_between(dos.index[dos.index<=0],-dos.iloc[:, 1][dos.index<=0], color = 'lightcoral')
+    else:
+        plt.plot(dos.iloc[:, 0], color='b', label='up')
+        plt.plot(-dos.iloc[:, 1], color='r', label='down')
+        plt.fill_between(dos.index[dos.index<=0],dos.iloc[:, 0][dos.index<=0], color = 'dodgerblue')
+        plt.fill_between(dos.index[dos.index<=0],-dos.iloc[:, 1][dos.index<=0], color = 'lightcoral')
+        plt.axhline(0, color = 'black', linewidth=0.7) #, min(dos.index), max(dos.index)
     plt.title('Density of states')
     plt.xlabel('E-E$_{Fermi}$ (eV)')
     plt.ylabel('DOS')
     plt.grid(linestyle='dotted')
     if minmax is not None: 
         plt.xlim(minmax[0], minmax[1])
-        ymax = max(dos['TDOS'][(dos.index >= minmax[0]) & (dos.index <= minmax[1])])
-        plt.ylim(top=ymax + 0.05*abs(ymax) )
-    plt.ylim(bottom=-0.005)
+        if(updown == '--su'):
+            ymax = max(dos.iloc[:, 0][(dos.index >= minmax[0]) & (dos.index <= minmax[1])])
+            plt.ylim(bottom=-0.005, top = ymax + 0.05*abs(ymax))
+        elif(updown == '--sd'):
+            ymin = -max(dos.iloc[:, 1][(dos.index >= minmax[0]) & (dos.index <= minmax[1])])
+            plt.ylim(bottom = ymin - 0.05*abs(ymin), top=+0.005)
+        else:
+            ymax = max(dos.iloc[:, 0][(dos.index >= minmax[0]) & (dos.index <= minmax[1])])
+            ymin = -max(dos.iloc[:, 1][(dos.index >= minmax[0]) & (dos.index <= minmax[1])])
+            plt.ylim(bottom = ymin - 0.05*abs(ymin), top = ymax + 0.05*abs(ymax))            
+
+    if(updown == '--sud'): plt.legend()
+    
     plt.savefig(outFile, bbox_inches='tight', dpi = 300)
 
 def main():
@@ -230,6 +289,8 @@ Optional:
 -o OUTPUTFILE         : specify custom ouput file name and location 
 --m                   : plot red points at the conduction band minimum (CBM) and valence band maximum (VBM) in the band structure
 --r min max           : energy range (both for DOS and bandstructure)
+--points              : draws bandstructure also with data points on top of lines
+--su, --sd, --sud     : plot spin up, down or both for DOS. If the calculation is non-spin polarized, this option will be ignored
 
 
 If the files do not exist in the working directory or at the specified location, you will be asked if you want to try to generate them with vaspkit,
@@ -250,7 +311,7 @@ in which case you need to type 'y'.''')
             outFile = 'dos.png'
             
         if(len(sys.argv)> sys.argv.index('-d')+1 and sys.argv[sys.argv.index('-d') + 1][0] != '-'):
-           dosFile=(os.path.dirname(sys.argv[sys.argv.index('-d') + 1]) if(os.path.dirname(sys.argv[sys.argv.index('-d') + 1]) != '') else '.')+'/TDOS.dat' 
+           dosFile=sys.argv[sys.argv.index('-d') + 1]
         else: #so no filename passed
             dosFile='TDOS.dat'     
 
@@ -264,12 +325,17 @@ in which case you need to type 'y'.''')
                 print('No TDOS.dat available. Exiting.')
                 return 1
 
+        if('--su' in sys.argv): spinupdown = '--su'
+        elif('--sd' in sys.argv): spinupdown = '--sd'
+        elif('--sud' in sys.argv): spinupdown = '--sud'
+        else: spinupdown = '--su' #default case if no option specified
+
         if('--r' in sys.argv):
             if(sys.argv.index('--r') + 2 <= len(sys.argv) - 1):
                 if(is_number(sys.argv[sys.argv.index('--r') + 1]) and is_number(sys.argv[sys.argv.index('--r') + 2])):
                     e_min = float(sys.argv[sys.argv.index('--r') + 1])
                     e_max = float(sys.argv[sys.argv.index('--r') + 2])
-                    plotDOS(dos_file = dosFile, minmax = (min(e_min, e_max), max(e_min, e_max)), outFile = outFile)
+                    plotDOS(dos_file = dosFile, minmax = (min(e_min, e_max), max(e_min, e_max)), outFile = outFile, updown=spinupdown)
                 else:
                     print('Range values are not numbers or missing. Exiting.')
                     return 1
@@ -277,7 +343,7 @@ in which case you need to type 'y'.''')
                 print('Missing range value(s). Exiting.')
                 return 1
         else:
-            plotDOS(dos_file = dosFile, outFile = outFile)
+            plotDOS(dos_file = dosFile, outFile = outFile, updown=spinupdown)
 
 
 
@@ -294,26 +360,35 @@ in which case you need to type 'y'.''')
             outFile = 'bands.png'
 
         if(len(sys.argv)> sys.argv.index('-b')+1 and sys.argv[sys.argv.index('-b') + 1][0] != '-'):
-           bandsFile=(os.path.dirname(sys.argv[sys.argv.index('-b') + 1]) if(os.path.dirname(sys.argv[sys.argv.index('-b') + 1]) != '') else '.')+'/REFORMATTED_BAND.dat' 
+           bandsFile=sys.argv[sys.argv.index('-b') + 1]
         else: #so no filename passed
-            bandsFile='REFORMATTED_BAND.dat'  
+            if(os.path.isfile('REFORMATTED_BAND.dat')): bandsFile='REFORMATTED_BAND.dat'
+            elif(os.path.isfile('REFORMATTED_BAND_UP.dat')): bandsFile='REFORMATTED_BAND_UP.dat'
+            else: bandsFile = ''
+
 
         if(not os.path.isfile(bandsFile)):
-            if('y' == input('REFORMATTED_BAND.dat not found. Try to generate it with vaspkit? y/n: ').lower() ):
+            if('y' == input('REFORMATTED_BAND.dat/REFORMATTED_BAND_UP.dat not found. Try to generate it with vaspkit? y/n: ').lower() ):
                 if(os.path.dirname(bandsFile) != ''): os.chdir(os.path.dirname(bandsFile))
                 os.system('echo "21\n211\n" | vaspkit')
                 os.chdir(workdir)
 
-            if(not os.path.isfile(bandsFile)):
-                print('No REFORMATTED_BAND.dat available. Exiting.')
+            if(os.path.isfile('REFORMATTED_BAND.dat')): bandsFile='REFORMATTED_BAND.dat'
+            elif(os.path.isfile('REFORMATTED_BAND_UP.dat')): bandsFile='REFORMATTED_BAND_UP.dat'
+            else:
+                print('No REFORMATTED_BAND.dat/REFORMATTED_BAND_UP.dat available. Exiting.')
                 return 1
+
+
+        if('--points' in sys.argv): style = '--points'
+        else: style = '--lines'
 
         if('--r' in sys.argv):
             if(sys.argv.index('--r') + 2 <= len(sys.argv) - 1):
                 if(is_number(sys.argv[sys.argv.index('--r') + 1]) and is_number(sys.argv[sys.argv.index('--r') + 2])):
                     e_min = float(sys.argv[sys.argv.index('--r') + 1])
                     e_max = float(sys.argv[sys.argv.index('--r') + 2])
-                    plotBands(bands_file = bandsFile, PLOT_CBMVBM='--m' in sys.argv, minmax=(min(e_min, e_max), max(e_min, e_max)), outFile=outFile )
+                    plotBands(bands_file = bandsFile, PLOT_CBMVBM='--m' in sys.argv, minmax=(min(e_min, e_max), max(e_min, e_max)), outFile=outFile, style=style )
                 else:
                     print('Range values are not numbers or missing. Exiting.')
                     return 1
@@ -321,7 +396,9 @@ in which case you need to type 'y'.''')
                 print('Missing range value(s). Exiting.')
                 return 1
         else:
-            plotBands(bands_file=bandsFile, PLOT_CBMVBM='--m' in sys.argv, outFile=outFile)
+            if(os.path.split(bandsFile)[1]=='REFORMATTED_BAND_UP.dat' and not(len(sys.argv)> sys.argv.index('-b')+1 and sys.argv[sys.argv.index('-b') + 1][0] != '-')):
+                print('Spin polarized calculation. No input file specified, so defaulting to REFORMATTED_BAND_UP.dat. To see the down channel specify the REFORMATTED_BAND_DW.dat as input.')
+            plotBands(bands_file=bandsFile, PLOT_CBMVBM='--m' in sys.argv, outFile=outFile, style=style)
 
 
 
@@ -338,14 +415,9 @@ in which case you need to type 'y'.''')
             outFile = 'bands_dos.png'
 
         if(len(sys.argv)> sys.argv.index('-d')+1 and sys.argv[sys.argv.index('-d') + 1][0] != '-'):
-           dosFile=(os.path.dirname(sys.argv[sys.argv.index('-d') + 1]) if(os.path.dirname(sys.argv[sys.argv.index('-d') + 1]) != '') else '.')+'/TDOS.dat' 
+           dosFile=sys.argv[sys.argv.index('-d') + 1]
         else: #so no filename passed
-            dosFile='TDOS.dat'    
-
-        if(len(sys.argv)> sys.argv.index('-b')+1 and sys.argv[sys.argv.index('-b') + 1][0] != '-'):
-           bandsFile=(os.path.dirname(sys.argv[sys.argv.index('-b') + 1]) if(os.path.dirname(sys.argv[sys.argv.index('-b') + 1]) != '') else '.')+'/REFORMATTED_BAND.dat' 
-        else: #so no filename passed
-            bandsFile='REFORMATTED_BAND.dat'  
+            dosFile='TDOS.dat'      
 
         if(not os.path.isfile(dosFile)):
             if('y' == input('TDOS.dat not found. Try to generate it with vaspkit? y/n: ').lower() ):
@@ -356,22 +428,40 @@ in which case you need to type 'y'.''')
                 print('No TDOS.dat available. Exiting.')
                 return 1
 
+        if(len(sys.argv)> sys.argv.index('-b')+1 and sys.argv[sys.argv.index('-b') + 1][0] != '-'):
+           bandsFile=sys.argv[sys.argv.index('-b') + 1]
+        else: #so no filename passed
+            if(os.path.isfile('REFORMATTED_BAND.dat')): bandsFile='REFORMATTED_BAND.dat'
+            elif(os.path.isfile('REFORMATTED_BAND_UP.dat')): bandsFile='REFORMATTED_BAND_UP.dat'
+            else: bandsFile = ''
+
+
         if(not os.path.isfile(bandsFile)):
-            if('y' == input('REFORMATTED_BAND.dat not found. Try to generate it with vaspkit? y/n: ').lower() ):
+            if('y' == input('REFORMATTED_BAND.dat/REFORMATTED_BAND_UP.dat not found. Try to generate it with vaspkit? y/n: ').lower() ):
                 if(os.path.dirname(bandsFile) != ''): os.chdir(os.path.dirname(bandsFile))
                 os.system('echo "21\n211\n" | vaspkit')
                 os.chdir(workdir)
 
-            if(not os.path.isfile(bandsFile)):
-                print('No REFORMATTED_BAND.dat available. Exiting.')
+            if(os.path.isfile('REFORMATTED_BAND.dat')): bandsFile='REFORMATTED_BAND.dat'
+            elif(os.path.isfile('REFORMATTED_BAND_UP.dat')): bandsFile='REFORMATTED_BAND_UP.dat'
+            else:
+                print('No REFORMATTED_BAND.dat/REFORMATTED_BAND_UP.dat available. Exiting.')
                 return 1
+
+        if('--su' in sys.argv): spinupdown = '--su'
+        elif('--sd' in sys.argv): spinupdown = '--sd'
+        elif('--sud' in sys.argv): spinupdown = '--sud'
+        else: spinupdown = '--su' #default case if no option specified
+
+        if('--points' in sys.argv): style = '--points'
+        else: style = '--lines'
 
         if('--r' in sys.argv):
             if(sys.argv.index('--r') + 2 <= len(sys.argv) - 1):
                 if(is_number(sys.argv[sys.argv.index('--r') + 1]) and is_number(sys.argv[sys.argv.index('--r') + 2])):
                     e_min = float(sys.argv[sys.argv.index('--r') + 1])
                     e_max = float(sys.argv[sys.argv.index('--r') + 2])
-                    plot_DOS_bands(dos_file=dosFile, bands_file=bandsFile, PLOT_CBMVBM='--m' in sys.argv, minmax=(min(e_min, e_max), max(e_min, e_max)), outFile=outFile)
+                    plot_DOS_bands(dos_file=dosFile, bands_file=bandsFile, PLOT_CBMVBM='--m' in sys.argv, minmax=(min(e_min, e_max), max(e_min, e_max)), outFile=outFile, style=style, updown=spinupdown)
                 else:
                     print('Range values are not numbers or missing. Exiting.')
                     return 1
@@ -379,7 +469,9 @@ in which case you need to type 'y'.''')
                 print('Missing range value(s). Exiting.')
                 return 1
         else:
-            plot_DOS_bands(dos_file=dosFile, bands_file=bandsFile, PLOT_CBMVBM='--m' in sys.argv, outFile=outFile)
+            if(os.path.split(bandsFile)[1]=='REFORMATTED_BAND_UP.dat' and not(len(sys.argv)> sys.argv.index('-b')+1 and sys.argv[sys.argv.index('-b') + 1][0] != '-')):
+                print('Spin polarized calculation. No input file specified, so defaulting to REFORMATTED_BAND_UP.dat. To see the down channel specify the REFORMATTED_BAND_DW.dat as input.')
+            plot_DOS_bands(dos_file=dosFile, bands_file=bandsFile, PLOT_CBMVBM='--m' in sys.argv, outFile=outFile, style=style, updown=spinupdown)
 
 
 
