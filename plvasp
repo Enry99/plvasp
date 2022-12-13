@@ -135,9 +135,11 @@ def plot_DOS_bands(dos_file : str = 'TDOS.dat', bands_file : str = 'REFORMATTED_
     if(updown == '--su'): 
         ax2.plot(dos.iloc[:, 0], dos.iloc[:, 0].index, color='b')
         ax2.fill_between(dos.iloc[:, 0][dos.index<=0], dos.index[dos.index<=0], color = 'dodgerblue')
+        ax2.set_xlim(xmin=-0.005)
     elif(updown == '--sd'): 
         ax2.plot(-dos.iloc[:, 1], dos.iloc[:, 1].index, color='r')
         ax2.fill_between(-dos.iloc[:, 1][dos.index<=0], dos.index[dos.index<=0], color = 'lightcoral')
+        ax2.set_xlim(xmax=+0.005)
     else:
         ax2.plot(dos.iloc[:, 0], dos.iloc[:, 0].index, color='b', label='up')
         ax2.plot(-dos.iloc[:, 1], dos.iloc[:, 1].index, color='r', label='down')
@@ -231,9 +233,11 @@ def plotDOS(dos_file : str = 'TDOS.dat', minmax : tuple = None, updown : str = '
     if(updown == '--su'): 
         plt.plot(dos.iloc[:, 0], color='b')
         plt.fill_between(dos.index[dos.index<=0],dos.iloc[:, 0][dos.index<=0], color = 'dodgerblue')
+        plt.ylim(bottom=-0.005)
     elif(updown == '--sd'): 
         plt.plot(-dos.iloc[:, 1], color='r')
         plt.fill_between(dos.index[dos.index<=0],-dos.iloc[:, 1][dos.index<=0], color = 'lightcoral')
+        plt.ylim(top=+0.005)
     else:
         plt.plot(dos.iloc[:, 0], color='b', label='up')
         plt.plot(-dos.iloc[:, 1], color='r', label='down')
@@ -255,7 +259,7 @@ def plotDOS(dos_file : str = 'TDOS.dat', minmax : tuple = None, updown : str = '
         else:
             ymax = max(dos.iloc[:, 0][(dos.index >= minmax[0]) & (dos.index <= minmax[1])])
             ymin = -max(dos.iloc[:, 1][(dos.index >= minmax[0]) & (dos.index <= minmax[1])])
-            plt.ylim(bottom = ymin - 0.05*abs(ymin), top = ymax + 0.05*abs(ymax))            
+            plt.ylim(bottom = ymin - 0.05*abs(ymin), top = ymax + 0.05*abs(ymax))      
 
     if(updown == '--sud'): plt.legend()
     
