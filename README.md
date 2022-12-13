@@ -9,19 +9,23 @@ Commands:
  
 Mandatory (one of these formats):
 
--d (FILE)             : plot DOS. If FILE is not specified, it is assumed to be the TDOS.dat in the working directory.
+`-d (FILE)`             : plot DOS. If FILE is not specified, it is assumed to be the TDOS.dat in the working directory.
 
--b (FILE)             : plot bandstructure. If FILE is not specified, it is assumed to be the REFORMATTED_BAND.dat in the working directory.
+`-b (FILE)`             : plot bandstructure. If FILE is not specified, it is assumed to be the REFORMATTED_BAND.dat in the working directory.
 
--d (FILE) -b (FILE)   : plot DOS and bandstructure together (sharing y axis)
+`-d (FILE) -b (FILE)`   : plot DOS and bandstructure together (sharing y axis)
 
 Optional:
 
--o OUTPUTFILE         : specify custom ouput file name and location 
+`-o OUTPUTFILE`         : specify custom ouput file name and location 
 
---m                   : plot red points at the conduction band minimum (CBM) and valence band maximum (VBM) in the band structure
+`--m`                   : plot red points at the conduction band minimum (CBM) and valence band maximum (VBM) in the band structure
 
---r MIN MAX           : energy range (both for DOS and bandstructure)
+`--r MIN MAX`           : energy range (both for DOS and bandstructure)
+
+`--points`              : draws bandstructure also with data points on top of lines
+
+`--su, --sd, --sud`     : plot spin up, down or both for DOS. If the calculation is non-spin polarized, this option will be ignored
 
 If the TDOS.dat or REFORMATTED_BAND.dat files do not exist in the working directory or at the specified location, you will be asked if you want to try to generate them with vaspkit,
 in which case you need to confirm by typing 'y'.
