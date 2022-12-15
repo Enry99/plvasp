@@ -1,9 +1,10 @@
 # plvasp
 
 This is a small toolkit to plot DOS, bandstructure and DOS+bandstructure in a nice way using matplotlib.
-It relies on vaspkit, so vaspkit needs to be callable from command-line command if you want to generate dos and band files.
-If the files were already generated with vaspkit the execution is not needed.
-The plot is saved as a png file in the wokring directory.
+
+It relies on vaspkit, so it either needs the previously generated with vaspkit TDOS.dat / REFORMATTED_BAND.dat or the possibility to call vaspkit from command-line to try to generate the DOS/bandstructure files from the VASP files in the selected directory.
+
+The plot is saved as a png file in the wokring directory (by default, but this can be changed by specifing the output filename, which determines the location and format using the plt.savefig function).
 
 Commands:
  
