@@ -47,4 +47,4 @@ Some example plots with the different options:
 `$ plvasp -d -b --r -10 10 --m --points`
 
 
-<img src="./demo_pictures/bands_dos.png" alt="drawing" width="600"/>
+<img src="./demo_pictures/bands_dos.png" alt="drawing" width="900"/>
