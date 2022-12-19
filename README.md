@@ -39,7 +39,7 @@ Some example plots with the different options:
 
 <img src="./demo_pictures/dos.png" alt="drawing" width="600"/>
 
-`$ plvasp -b --m`
+`$ plvasp -b`
 
 <img src="./demo_pictures/bands.png" alt="drawing" width="600"/>
 
