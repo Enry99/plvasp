@@ -124,7 +124,7 @@ def plot_DOS_bands(dos_file : str = 'TDOS.dat', bands_file : str = 'REFORMATTED_
     ax1.set_xlim(np.min(bands.index), np.max(bands.index))
     if minmax is not None: 
         ax1.set_ylim(minmax[0], minmax[1])
-    ax1.set_ylabel('E-E$_{Fermi}$ (eV)')
+    ax1.set_ylabel('E-E$_{F}$ (eV)')
     #ax1.set_xlabel('k points')
     ax1.grid(linestyle='dotted')
 
@@ -218,7 +218,7 @@ def plotBands(bands_file : str = 'REFORMATTED_BAND.dat', PLOT_CBMVBM: bool = Tru
     plt.xlim(np.min(bands.index), np.max(bands.index))
     if(minmax is not None):
         plt.ylim(minmax[0], minmax[1])
-    plt.ylabel('E-E$_{Fermi}$ (eV)')
+    plt.ylabel('E-E$_{F}$ (eV)')
     #plt.xlabel('k points')
     plt.grid(linestyle='dotted')
 
@@ -245,7 +245,7 @@ def plotDOS(dos_file : str = 'TDOS.dat', minmax : tuple = None, updown : str = '
         plt.fill_between(dos.index[dos.index<=0],-dos.iloc[:, 1][dos.index<=0], color = 'lightcoral')
         plt.axhline(0, color = 'black', linewidth=0.7) #, min(dos.index), max(dos.index)
     plt.title('Density of states')
-    plt.xlabel('E-E$_{Fermi}$ (eV)')
+    plt.xlabel('E-E$_{F}$ (eV)')
     plt.ylabel('DOS')
     plt.grid(linestyle='dotted')
     if minmax is not None: 
