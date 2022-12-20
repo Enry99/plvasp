@@ -104,10 +104,11 @@ def plot_DOS_bands(dos_file : str = 'TDOS.dat', bands_file : str = 'REFORMATTED_
     fig.subplots_adjust(wspace=0.05, hspace=0)
 
     if(PLOT_LABELS):
+        ax1.set_xticks(kpoints_values)
+        ax1.set_xticklabels(kpoints_labels)
         for i in vseparators: #draw vertical lines for k-points like X|K
             ax1.axvline(x=i, color='black', linewidth=0.7)
-            ax1.set_xticks(kpoints_values)
-            ax1.set_xticklabels(kpoints_labels)
+
 
     ax1.axhline(y=0, color='black', linewidth=0.7)
 
@@ -200,9 +201,9 @@ def plotBands(bands_file : str = 'REFORMATTED_BAND.dat', PLOT_CBMVBM: bool = Tru
     fig = plt.figure(figsize=(10,5))
 
     if(PLOT_LABELS):
+        plt.xticks(kpoints_values, kpoints_labels)
         for i in vseparators: #draw vertical lines for k-points like X|K
-            plt.axvline(x=i, color='black', linewidth=0.7)
-            plt.xticks(kpoints_values, kpoints_labels)
+            plt.axvline(x=i, color='black', linewidth=0.7)   
 
     plt.axhline(y=0, color='black', linewidth=0.7)
     plt.plot(bands, 'b-')
