@@ -169,11 +169,11 @@ def plot_DOS_bands(dos_file : str = 'TDOS.dat', bands_file : str = 'REFORMATTED_
 
     fig.savefig(outFile, bbox_inches='tight',dpi=600)
 
-def plotBands(bands_file : str = 'REFORMATTED_BAND.dat', PLOT_CBMVBM: bool = True, minmax : tuple = None, outFile : str = 'bands_dos.png', style : str = '--lines'):
+def plotBands(bands_file : str = 'REFORMATTED_BAND.dat', PLOT_CBMVBM: bool = True, minmax : tuple = None, ibands : tuple = None ,outFile : str = 'bands_dos.png', style : str = '--lines'):
 
     bands = pd.read_csv(bands_file, sep = '\s+', index_col = 0, skiprows = 1, header = None)
-    
 
+    
     #read k-points labels (strings) and numeric values #######################################
     if(os.path.dirname(bands_file) == ''): fff = "KLABELS"
     else: fff = os.path.dirname(bands_file)+"/KLABELS"
@@ -196,20 +196,26 @@ def plotBands(bands_file : str = 'REFORMATTED_BAND.dat', PLOT_CBMVBM: bool = Tru
     else:
         print('KLABELS file not found, so labels won\'t be plotted.')
     ##########################################################################################
-
+    if('Undefined' in kpoints_labels):
+        PLOT_LABELS = False
+        print('Labels non readable, so they won\'t be plotted.')
 
     fig = plt.figure(figsize=(10,5))
 
     if(PLOT_LABELS):
         plt.xticks(kpoints_values, kpoints_labels)
         for i in vseparators: #draw vertical lines for k-points like X|K
-            plt.axvline(x=i, color='black', linewidth=0.7)   
+            plt.axvline(x=i, color='black', linewidth=0.7)
+    #else: plt.xticks([], [])
 
     plt.axhline(y=0, color='black', linewidth=0.7)
-    plt.plot(bands, 'b-')
+
+    if(ibands is None or ibands == (-1,-1)): ibands = (0, len(bands.columns)+1)
+
+    plt.plot(bands.iloc[:,ibands[0]:ibands[1]], 'b-')
     if(style == '--points'):
-        plt.plot(bands[bands<=0], 'bo', markersize = 3)
-        plt.plot(bands[bands>0], 'bo', markersize = 3, markerfacecolor='white')
+        plt.plot(bands.iloc[:,ibands[0]:ibands[1]][bands<=0], 'bo', markersize = 5)
+        plt.plot(bands.iloc[:,ibands[0]:ibands[1]][bands>0], 'bo', markersize = 5, markerfacecolor='white')
 
     if(PLOT_CBMVBM): #plot VBM and CBM points
         vbm_x, vbm_y, cbm_x, cbm_y = find_CBM_VBM(bands)
@@ -294,6 +300,7 @@ Optional:
 -o OUTPUTFILE         : specify custom ouput file name and location 
 --m                   : plot red points at the conduction band minimum (CBM) and valence band maximum (VBM) in the band structure
 --r min max           : energy range (both for DOS and bandstructure)
+--ibands i_min i_max  : plot only bands in the specified range. Indexing starts from 0 and the extremes are included, i.e. [i_min, i_max]
 --points              : draws bandstructure also with data points on top of lines
 --su, --sd, --sud     : plot spin up, down or both for DOS. If the calculation is non-spin polarized, this option will be ignored
 
@@ -388,12 +395,23 @@ in which case you need to type 'y'.''')
         if('--points' in sys.argv): style = '--points'
         else: style = '--lines'
 
+        if('--ibands' in sys.argv):
+            if(sys.argv.index('--ibands') + 2 <= len(sys.argv) - 1):
+                if(is_number(sys.argv[sys.argv.index('--ibands') + 1]) and is_number(sys.argv[sys.argv.index('--ibands') + 2])):
+                    i_min = int(sys.argv[sys.argv.index('--ibands') + 1])
+                    i_max = int(sys.argv[sys.argv.index('--ibands') + 2])
+                    i_bands = (i_min, i_max+1)
+                else:
+                    print('Band index values are not numbers or missing. Exiting.')
+                    return 1
+        else: i_bands = (-1,-1)
+
         if('--r' in sys.argv):
             if(sys.argv.index('--r') + 2 <= len(sys.argv) - 1):
                 if(is_number(sys.argv[sys.argv.index('--r') + 1]) and is_number(sys.argv[sys.argv.index('--r') + 2])):
                     e_min = float(sys.argv[sys.argv.index('--r') + 1])
                     e_max = float(sys.argv[sys.argv.index('--r') + 2])
-                    plotBands(bands_file = bandsFile, PLOT_CBMVBM='--m' in sys.argv, minmax=(min(e_min, e_max), max(e_min, e_max)), outFile=outFile, style=style )
+                    plotBands(bands_file = bandsFile, PLOT_CBMVBM='--m' in sys.argv, minmax=(min(e_min, e_max), max(e_min, e_max)), ibands = i_bands, outFile=outFile, style=style )
                 else:
                     print('Range values are not numbers or missing. Exiting.')
                     return 1
@@ -403,7 +421,7 @@ in which case you need to type 'y'.''')
         else:
             if(os.path.split(bandsFile)[1]=='REFORMATTED_BAND_UP.dat' and not(len(sys.argv)> sys.argv.index('-b')+1 and sys.argv[sys.argv.index('-b') + 1][0] != '-')):
                 print('Spin polarized calculation. No input file specified, so defaulting to REFORMATTED_BAND_UP.dat. To see the down channel specify the REFORMATTED_BAND_DW.dat as input.')
-            plotBands(bands_file=bandsFile, PLOT_CBMVBM='--m' in sys.argv, outFile=outFile, style=style)
+            plotBands(bands_file=bandsFile, PLOT_CBMVBM='--m' in sys.argv, ibands = i_bands, outFile=outFile, style=style)
 
 
 
