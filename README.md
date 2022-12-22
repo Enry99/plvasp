@@ -24,6 +24,8 @@ Optional:
 
 `--r MIN MAX`           : energy range (both for DOS and bandstructure)
 
+`--ibands i_min i_max`  : plot only bands in the specified range. Indexing starts from 0 and the extremes are included, i.e. [i_min, i_max]
+
 `--points`              : draws bandstructure also with data points on top of lines
 
 `--su, --sd, --sud`     : plot spin up, down or both for DOS. If the calculation is non-spin polarized, this option will be ignored
