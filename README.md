@@ -6,6 +6,10 @@ It relies on vaspkit, so it either needs the previously generated with vaspkit T
 
 The plot is saved as a png file in the wokring directory (by default, but this can be changed by specifing the output filename, which determines the location and format using the plt.savefig function).
 
+---
+In order to execute it from any folder by simply typing "plvasp", you need to install it on PATH by simply running ./install.sh
+---
+
 Commands:
  
 Mandatory (one of these formats):
