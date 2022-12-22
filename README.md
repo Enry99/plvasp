@@ -50,3 +50,8 @@ Some example plots with the different options:
 
 
 <img src="./demo_pictures/bands_dos.png" alt="drawing" width="900"/>
+
+
+`$ plvasp -b --ibands 0 1 --points`
+
+<img src="./demo_pictures/bands_index.png" alt="drawing" width="900"/>
